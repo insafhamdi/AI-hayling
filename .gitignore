@@ -1,0 +1,13 @@
+﻿# Ignorer environnements virtuels
+.venv/
+venv/
+
+# Ignorer gros fichiers
+*.dll
+*.lib
+*.pkl
+*.pt
+
+# Ignorer caches Python
+__pycache__/
+*.pyc
