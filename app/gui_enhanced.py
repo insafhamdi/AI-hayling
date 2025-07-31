@@ -10,9 +10,11 @@ import sys, json, re, unicodedata
 from pathlib import Path
 from typing import List
 
+import datetime
 import numpy as np, pandas as pd, torch
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, balanced_accuracy_score
+from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as Canvas
 
@@ -50,12 +52,18 @@ def _first_notna(lst:List[pd.Series])->pd.Series:
 
 def load_psychopy(p:Path)->pd.DataFrame:
     raw=pd.read_csv(p,sep=";",dtype=str)
+    pid_col = next((c for c in raw.columns if c.lower().startswith(("n° participant", "dp"))), None)
+    if pid_col:
+        pid_val = raw[pid_col].dropna().iloc[0]
+    else:
+        pid_val = "Inconnu"    
     auto_mask  = raw.get("trials.textbox_Rep_4.text", pd.Series(dtype=str)).notna()
     inhib_mask = raw.get("trials_2.textbox_Rep_5.text", pd.Series(dtype=str)).notna()
     auto, inhib = raw.loc[auto_mask].copy(), raw.loc[inhib_mask].copy()
     auto ["Type de condition"]="Automatique"
     inhib["Type de condition"]="Inhibition"
     trials=pd.concat([auto,inhib]).sort_index()
+    
 
     trials["Phrase à trou"]=_first_notna([
         trials.get("automatique_proposition_test",pd.Series(index=trials.index)),
@@ -78,8 +86,10 @@ def load_psychopy(p:Path)->pd.DataFrame:
         trials.get("trials_2.key_rep.rt", pd.Series(index=trials.index))]).astype(float).round(3)
 
     cols=["Type de condition","Temps (s)","Phrase à trou","Valence",
-          "Réponse à inhiber / cible","Réponse du patient"]
-    return trials[cols].reset_index(drop=True)
+        "Réponse à inhiber / cible","Réponse du patient"]
+    df = trials[cols].reset_index(drop=True)
+    df.attrs["patient_id"] = str(pid_val)
+    return df
 
 # ------------------------ ROC → meilleur seuil ------------------------------
 def opt_th(p,y):
@@ -89,7 +99,8 @@ def opt_th(p,y):
 # ------------------------------------------------------- modèle Qt ----------
 class PandasModel(QAbstractTableModel):
     COLOR={"Automatique":QBrush(QColor("#e8f5e9")),
-           "Inhibition" :QBrush(QColor("#fff3e0"))}
+        "Inhibition" :QBrush(QColor("#fff3e0"))}
+    RED = QBrush(QColor("#FF8A80"))
     def __init__(self,df): super().__init__(); self._df=df
     def rowCount(self,*_): return len(self._df)
     def columnCount(self,*_): return len(self._df.columns)
@@ -99,6 +110,10 @@ class PandasModel(QAbstractTableModel):
         if role in (Qt.DisplayRole,Qt.EditRole):
             return "" if pd.isna(v) else str(v)
         if role==Qt.BackgroundRole:
+            # met en rouge si la correction humaine a eu lieu 
+            coll_corr = "corrigé"
+            if coll_corr in self._df.columns and self._df.iloc[idx.row()][coll_corr]:
+                return self.RED
             cond=self._df.iat[idx.row(),self._df.columns.get_loc("Type de condition")]
             return self.COLOR.get(cond)
     def headerData(self,i,ori,role=Qt.DisplayRole):
@@ -113,7 +128,8 @@ class PandasModel(QAbstractTableModel):
 # ---------------------------------------------------- fenêtre principale ----
 class HaylingScorer(QMainWindow):
     def __init__(self):
-        super().__init__(); self.setWindowTitle("Hayling Émotionnel – Scorage assisté"); self.resize(1400,800)
+        super().__init__(); self.setWindowTitle("EMOHayling – Cotation assisté"); self.setWindowState(Qt.WindowMaximized)
+
         self.labse=SentenceTransformer(str(MODEL_DIR),device="cpu")
         self.classif=torch.nn.Linear(768*3,2); self.classif.load_state_dict(torch.load(CLASSIF_CKPT,map_location="cpu")); self.classif.eval()
 
@@ -127,8 +143,28 @@ class HaylingScorer(QMainWindow):
         ban=QHBoxLayout(); ban.addStretch()
         for p in LOGOS.values():
             if p:
-                lbl=QLabel(); lbl.setPixmap(QPixmap(str(p)).scaledToHeight(70,Qt.SmoothTransformation)); ban.addWidget(lbl)
+                lbl=QLabel(); lbl.setPixmap(QPixmap(str(p)).scaledToHeight(100,Qt.SmoothTransformation)); ban.addWidget(lbl)
         ban.addStretch(); root.addLayout(ban)
+
+        # ID patient (à afficher en haut à droite)
+        self.lbl_patient = QLabel()
+        self.lbl_patient.setAlignment(Qt.AlignRight | Qt.AlignTop)
+        self.lbl_patient.setTextFormat(Qt.RichText)
+        self.lbl_patient.setText(f"""
+        <span style='
+            color:#1976D2;
+            font-size:14pt;
+            font-family:"Seoge UI","Arial Rounded MT Bold", Arial, sans-serif;
+            font-weight:600;
+            letter-spacing:1px;
+            background: #F5FAFF;
+            border-radius: 8px;
+            padding: 2px 18px 2px 12 px;
+        '>
+        ID participant 
+        </span>
+        """)
+        root.addWidget(self.lbl_patient)
 
         # Tabs
         self.tabs=QTabWidget(); root.addWidget(self.tabs)
@@ -145,7 +181,11 @@ class HaylingScorer(QMainWindow):
 
         # ---- onglet Analyse
         tab_ana=QWidget(); anaL=QVBoxLayout(tab_ana)
-        self.canvas=Canvas(plt.Figure(figsize=(8,4))); anaL.addWidget(self.canvas)
+        lbl_dash = QLabel("""<span style='color:#1565c0;font-size:24px;font-family:"Arial Black",Arial, sans-serif;letter-spacing:1px; font-weight:900;'>Tableau de bord EMOHayling – Analyse</span>""")
+        lbl_dash.setAlignment(Qt.AlignCenter)
+        lbl_dash.setTextFormat(Qt.RichText)
+        anaL.addWidget(lbl_dash)
+        self.canvas=Canvas(plt.Figure(figsize=(13,8))); anaL.addWidget(self.canvas, stretch=1)
         self.lbl_stat=QLabel(); self.lbl_stat.setAlignment(Qt.AlignLeft|Qt.AlignTop); anaL.addWidget(self.lbl_stat)
         self.tabs.addTab(tab_ana,"Analyse"); self.tabs.setTabEnabled(1,False)
 
@@ -167,8 +207,25 @@ class HaylingScorer(QMainWindow):
     def import_csv(self):
         fp,_=QFileDialog.getOpenFileName(self,"CSV PsychoPy",str(PROJECT_ROOT),"CSV (*.csv)")
         if not fp:return
-        try: self.df=load_psychopy(Path(fp))
-        except Exception as e: QMessageBox.critical(self,"Erreur import",str(e)); return
+        try:
+            self.df = load_psychopy(Path(fp))
+            pid = self.df.attrs.get("patient_id", "inconnu")
+            self.lbl_patient.setText(f"""
+            <span style='
+                color:#1976D2;
+                font-size:14pt;
+                font-family:"Segoe UI","Arial Rounded MT Bold", Arial, sans-serif;
+                font-weight:600;
+                letter-spacing:1px;
+                background: #F5FAFF;
+                border-radius: 8px;
+                padding: 2px 18px 2px 12px;'>
+            ID participant : {pid}
+            </span>
+            """)
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur import", str(e))
+            return
         self._refresh()
         self.b_score.setEnabled(True); self.b_save.setEnabled(False); self.tabs.setTabEnabled(1,False)
         self.status.showMessage("CSV chargé.")
@@ -212,57 +269,196 @@ class HaylingScorer(QMainWindow):
         self.status.showMessage("Cotation terminée.")
 
     def _refresh_analysis(self):
-        fig = self.canvas.figure; fig.clf()
+        fig = self.canvas.figure
+        fig.clf()
+        fig.set_size_inches(12, 6)  # large et bas
 
-        # Camembert réussite/échec
-        ax1 = fig.add_subplot(221)
-        succ = (self.df["Cotation automatique"] == 0).sum()
-        err  = len(self.df) - succ
-        ax1.pie([succ, err],
-            labels=[f"Correct (0) — {succ}", f"Erreur (1/3) — {err}"],
-            autopct="%1.1f%%", startangle=90, colors=["#4C72B0", "#DD8452"])
-        ax1.set_title("Réussite vs Échec")
+        df = self.df.copy()
 
-        # Camembert par valence
-        ax2 = fig.add_subplot(222)
-        counts = self.df["Valence"].value_counts()
-        ax2.pie(counts.values,
-            labels=[f"{v} — {counts[v]}" for v in counts.index],
-            autopct="%1.1f%%", startangle=90)
-        ax2.set_title("Répartition des essais par Valence")
+        # -------- Bloc 1 : Taux de réussite/échec ---------
+        ax1 = fig.add_subplot(131)
+        succ = (df["Cotation automatique"] == 0).sum()
+        err  = (df["Cotation automatique"] != 0).sum()
+        # Bleu et vert pastel
+        pastel_colors = ["#90caf9", "#a5d6a7"]
+        wedges, texts, autotexts = ax1.pie(
+            [succ, err],
+            labels=[f"Réussite ({succ})", f"Erreur ({err})"],
+            autopct="%1.1f%%",
+            startangle=90,
+            colors=pastel_colors,
+            textprops={'fontsize': 11, 'color': '#233'}
+        )
+        # Agrandir le texte au centre
+        for autotext in autotexts:
+            autotext.set_fontsize(12)
+        ax1.set_title("Réussite vs Échec", fontsize=13, pad=10)
+        ax1.axis('equal')
 
-        # Temps moyen
-        ax3 = fig.add_subplot(223); ax3.axis("off")
-        temps_moy = self.df.groupby("Valence")["Temps (s)"].mean()
-        slow = temps_moy.idxmax()
-        txt = (f"Temps moyen par valence :\n"
-               + "\n".join(f"• {v} : {temps_moy[v]:.1f}s" for v in temps_moy.index)
-               + f"\n\n→ Plus lent pour « {slow} ».")
-        ax3.text(0, 0.5, txt, va="center", fontsize=10)
+        # -------- Bloc 2 : Temps moyen par valence ---------
+        ax2 = fig.add_subplot(132)
+        temps_moy = df.groupby("Valence")["Temps (s)"].mean().sort_values()
+        pastel_bar = ["#90caf9", "#a5d6a7", "#b2dfdb"][:len(temps_moy)]
+        if not temps_moy.empty:
+            bars = ax2.bar(temps_moy.index, temps_moy.values, color=pastel_bar)
+            for bar in bars:
+                height = bar.get_height()
+                ax2.annotate(f"{height:.1f}s",
+                            xy=(bar.get_x() + bar.get_width() / 2, height),
+                            xytext=(0, 3),
+                            textcoords="offset points",
+                            ha='center', va='bottom', fontsize=11)
+            ax2.set_ylim(0, max(temps_moy.max()*1.1, 2))
+        ax2.set_title("Temps moyen par valence", fontsize=13, pad=10)
+        ax2.set_ylabel("Temps moyen (s)")
+        ax2.tick_params(axis='x', labelsize=11, rotation=10)
 
-        # Extrait métriques
-        ax4 = fig.add_subplot(224); ax4.axis("off")
-        extrait = self.df[["Distance sémantique", "Cotation automatique"]].head(5)
-        ax4.text(0, 1, "Extrait des métriques (5 lignes) :", fontsize=10, va="top")
-        ax4.text(0, 0.7, extrait.to_string(index=False), family="monospace", fontsize=8)
+        # -------- Bloc 3 : Items à surveiller (si multi-patients) ---------
+        ax3 = fig.add_subplot(133)
+        fail_rate = (df.groupby("Phrase à trou")["Cotation automatique"]
+                    .apply(lambda x: (x == 3).mean()))
+        surveil_items = fail_rate[fail_rate >= 0.4].sort_values(ascending=False).head(5)
+        ax3.axis("off")
+        if not surveil_items.empty:
+            msg = "★ Items à surveiller (>40% échec) ★\n\n"
+            for item, rate in surveil_items.items():
+                msg += f"• {item[:45]}... : {rate*100:.0f}%\n"
+            ax3.text(0, 1, msg, fontsize=11, va="top", family="monospace", color="#00695c")
+        else:
+            ax3.text(0.5, 0.5, "Aucun item à surveiller", ha="center", va="center", fontsize=12, color="#888")
 
-        fig.tight_layout(); self.canvas.draw()
+        # -------- Ajustement global ---------
+        fig.subplots_adjust(left=0.05, right=0.97, wspace=0.35, top=0.86, bottom=0.16)
+
+        # Pas de titre dans le canvas (plus propre)
+        self.canvas.draw()
+
+
 
     def save_feedback(self):
-        mask = self.df["Cotation automatique"] != self._auto_scores
-        if not mask.any():
-            QMessageBox.information(self, "Aucune correction", "Aucune cotation n’a été modifiée.")
-            return
-        to_save = self.df.loc[mask, [
-            "Type de condition","Phrase à trou","Valence",
-            "Réponse à inhiber / cible","Réponse du patient",
-            "Temps (s)","p_sim","Cotation automatique"
-        ]].rename(columns={"Cotation automatique":"label"})
-        header = not FEEDBACK_CSV.exists()
-        to_save.to_csv(FEEDBACK_CSV, mode="a", header=header, index=False, encoding="utf-8")
-        self.status.showMessage(f"{len(to_save)} corrections ajoutées dans {FEEDBACK_CSV.name}")
-        QMessageBox.information(self, "Sauvegarde", f"{len(to_save)} corrections enregistrées.")                      
+        # 1. Ajoute la colonne "corrigé" : True si modifiée par la psy, False sinon
+        corrige = (self.df["Cotation automatique"] != self._auto_scores)
+        df_to_save = self.df.copy()
+        df_to_save["corrigé"] = corrige
+        df_to_save = df_to_save.rename(columns={"Cotation automatique":"label"})
 
+        # 2. (Optionnel) Ajoute l'identifiant patient si dispo dans self.df
+        # Si tu veux le gérer : il faut une colonne 'patient_id' dans le dataframe à la base
+        # Si pas présent, retire cette ligne ou adapte selon tes colonnes dispo
+
+        # 3. Fusion intelligente dans le CSV
+        header = not FEEDBACK_CSV.exists()
+        if FEEDBACK_CSV.exists():
+            old = pd.read_csv(FEEDBACK_CSV)
+            # Fusion/dédoublonnage par colonnes clés
+            keys = ["Phrase à trou", "Réponse du patient"]
+            if "patient_id" in df_to_save.columns:
+                keys.append("patient_id")
+            all_ = pd.concat([old, df_to_save], ignore_index=True)
+            all_ = all_.drop_duplicates(subset=keys, keep="last")
+            all_.to_csv(FEEDBACK_CSV, index=False, encoding="utf-8")
+            n_sauve = len(df_to_save)
+        else:
+            df_to_save.to_csv(FEEDBACK_CSV, index=False, header=header, encoding="utf-8")
+            n_sauve = len(df_to_save)
+
+        self.status.showMessage(f"{n_sauve} réponses ajoutées/actualisées dans {FEEDBACK_CSV.name}")
+        QMessageBox.information(self, "Sauvegarde", f"{n_sauve} réponses enregistrées (dont corrections).")
+        self.retrain_model()  # Appel auto du réentrainement
+    
+    def retrain_model(self):
+        if not FEEDBACK_CSV.exists():
+            return
+        df = pd.read_csv(FEEDBACK_CSV)
+        if len(df) < 10:
+            self.status.showMessage("Pas assez de corrections pour réentraîner (min 10)")
+            return
+
+        # Feature engineering identique à la cotation
+        norm = lambda t: re.sub(r"\s+"," ", unicodedata.normalize("NFKD", t).encode("ascii","ignore").decode("ascii").lower()).strip()
+        pats = [norm(x) for x in df["Réponse du patient"].astype(str)]
+        tgts = [norm(x) for x in df["Réponse à inhiber / cible"].astype(str)]
+        emb_p = self.labse.encode(pats, convert_to_tensor=True, normalize_embeddings=True)
+        emb_t = self.labse.encode(tgts, convert_to_tensor=True, normalize_embeddings=True)
+        feats = torch.cat([emb_p, emb_t, torch.abs(emb_p - emb_t)], dim=1)
+        y = torch.tensor(df["label"].values, dtype=torch.long)
+
+        # Split train/val (stratifié si possible)
+        X_train, X_val, y_train, y_val = train_test_split(
+            feats, y, test_size=0.2, random_state=42, stratify=y if len(np.unique(y)) > 1 else None
+        )
+
+        # Réinitialise le classifieur
+        classif = torch.nn.Linear(feats.shape[1], 2)
+        opt = torch.optim.Adam(classif.parameters(), lr=1e-3)
+        loss_fn = torch.nn.CrossEntropyLoss()
+        best_bacc = 0
+        best_weights = None
+        patience = 5
+        wait = 0
+        min_val_loss = float('inf')
+
+        # Entraînement avec early stopping et évaluation
+        for epoch in range(30):  # Max 30 epochs
+            classif.train()
+            opt.zero_grad()
+            output = classif(X_train)
+            loss = loss_fn(output, y_train)
+            loss.backward()
+            opt.step()
+
+            # Validation
+            classif.eval()
+            with torch.no_grad():
+                val_out = classif(X_val)
+                val_loss = loss_fn(val_out, y_val).item()
+                preds = torch.argmax(val_out, dim=1)
+                y_val_np = y_val.cpu().numpy() if hasattr(y_val, "cpu") else y_val.numpy()
+                preds_np = preds.cpu().numpy() if hasattr(preds, "cpu") else preds.numpy()
+                bacc = balanced_accuracy_score(y_val_np, preds_np)
+                
+
+            # Early stopping
+            if val_loss < min_val_loss:
+                min_val_loss = val_loss
+                best_bacc = bacc
+                best_weights = classif.state_dict()
+                wait = 0
+            else:
+                wait += 1
+                if wait >= patience:
+                    break
+
+        # Charge les meilleurs poids
+        if best_weights is not None:
+            classif.load_state_dict(best_weights)
+
+        torch.save(classif.state_dict(), CLASSIF_CKPT)
+        self.classif.load_state_dict(torch.load(CLASSIF_CKPT, map_location="cpu"))
+        self.classif.eval()
+
+        # Journalisation log
+        log_file = PROJECT_ROOT / "train_log.csv"
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_data = {
+            "datetime": now,
+            "n_feedback": len(df),
+            "val_bacc": best_bacc,
+            "val_loss": min_val_loss,
+            "epochs": epoch+1
+        }
+        # Append log
+        if not log_file.exists():
+            pd.DataFrame([log_data]).to_csv(log_file, index=False)
+        else:
+            pd.DataFrame([log_data]).to_csv(log_file, mode='a', header=False, index=False)
+
+        # Affichage feedback
+        msg = (f"Réentraînement terminé – Balanced accuracy validation: {best_bacc:.2%} "
+            f"(n={len(y_val)}), epochs: {epoch+1}")
+        self.status.showMessage(msg)
+        QMessageBox.information(self, "Réentraînement modèle", msg)
+        
 # ------------------------------------------------------------------ main -----
 def main():
     app=QApplication(sys.argv); win=HaylingScorer(); win.show(); sys.exit(app.exec_())

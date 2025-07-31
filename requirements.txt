@@ -1,5 +1,6 @@
 PyQt5>=5.15.2
 torch>=2.0
+tqdm
 sentence-transformers
 scikit-learn
 pandas
