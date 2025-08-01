@@ -176,6 +176,13 @@ class HaylingScorer(QMainWindow):
         self.b_imp=QPushButton("Importer CSV"); self.b_imp.clicked.connect(self.import_csv); btnL.addWidget(self.b_imp)
         self.b_score=QPushButton("Coter"); self.b_score.setEnabled(False); self.b_score.clicked.connect(self.score); btnL.addWidget(self.b_score)
         self.b_save=QPushButton("Sauver corrections"); self.b_save.setEnabled(False); self.b_save.clicked.connect(self.save_feedback); btnL.addWidget(self.b_save)
+        
+        # ajouter le bouton dee reéntrainement 
+        self.b_retrain = QPushButton("Réentraîner le modèle")
+        self.b_retrain.setEnabled(True)
+        self.b_retrain.clicked.connect(self.retrain_model)
+        btnL.addWidget(self.b_retrain)
+        
         btnL.addStretch(); tbox.addLayout(btnL)
         self.tabs.addTab(tab_tbl,"Tableau")
 
