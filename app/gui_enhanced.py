@@ -165,6 +165,19 @@ class HaylingScorer(QMainWindow):
         </span>
         """)
         root.addWidget(self.lbl_patient)
+        if FEEDBACK_CSV.exists():
+            n_feedback = len(pd.read_csv(FEEDBACK_CSV))
+        else:
+            n_feedback = 0
+        self.lbl_feedback= QLabel()
+        self.lbl_feedback.setAlignment(Qt.AlignRight | Qt.AlignTop)
+        self.lbl_feedback.setTextFormat(Qt.RichText)
+        self.lbl_feedback.setStyleSheet("color:#1565c0; font-size:10.5pt; padding-right:18px;margin-top: -7px;")
+        txt = f"<i>{n_feedback} feedbacks disponibles pour l'apprentissage</i>" if n_feedback > 0 else ""
+        self.lbl_feedback.setText(txt)
+        root.addWidget(self.lbl_feedback)
+        
+        
 
         # Tabs
         self.tabs=QTabWidget(); root.addWidget(self.tabs)
@@ -192,6 +205,9 @@ class HaylingScorer(QMainWindow):
         lbl_dash.setAlignment(Qt.AlignCenter)
         lbl_dash.setTextFormat(Qt.RichText)
         anaL.addWidget(lbl_dash)
+        
+        
+        
         self.canvas=Canvas(plt.Figure(figsize=(13,8))); anaL.addWidget(self.canvas, stretch=1)
         self.lbl_stat=QLabel(); self.lbl_stat.setAlignment(Qt.AlignLeft|Qt.AlignTop); anaL.addWidget(self.lbl_stat)
         self.tabs.addTab(tab_ana,"Analyse"); self.tabs.setTabEnabled(1,False)
@@ -373,7 +389,7 @@ class HaylingScorer(QMainWindow):
 
         self.status.showMessage(f"{n_sauve} réponses ajoutées/actualisées dans {FEEDBACK_CSV.name}")
         QMessageBox.information(self, "Sauvegarde", f"{n_sauve} réponses enregistrées (dont corrections).")
-        self.retrain_model()  # Appel auto du réentrainement
+        
     
     def retrain_model(self):
         if not FEEDBACK_CSV.exists():
