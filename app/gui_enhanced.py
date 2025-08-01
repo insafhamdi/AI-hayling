@@ -341,6 +341,8 @@ class HaylingScorer(QMainWindow):
         df_to_save = self.df.copy()
         df_to_save["corrigé"] = corrige
         df_to_save = df_to_save.rename(columns={"Cotation automatique":"label"})
+        df_to_save["source_label"] = np.where(corrige, "psy", "auto")
+        
 
         # 2. (Optionnel) Ajoute l'identifiant patient si dispo dans self.df
         # Si tu veux le gérer : il faut une colonne 'patient_id' dans le dataframe à la base
@@ -370,8 +372,8 @@ class HaylingScorer(QMainWindow):
         if not FEEDBACK_CSV.exists():
             return
         df = pd.read_csv(FEEDBACK_CSV)
-        if len(df) < 10:
-            self.status.showMessage("Pas assez de corrections pour réentraîner (min 10)")
+        if len(df) == 0:
+            self.status.showMessage("Feedback vide, rien à entrainer.")
             return
 
         # Feature engineering identique à la cotation
