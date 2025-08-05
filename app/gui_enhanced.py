@@ -22,7 +22,8 @@ from PyQt5.QtCore    import Qt, QAbstractTableModel, QModelIndex
 from PyQt5.QtGui     import QPixmap, QColor, QBrush
 from PyQt5.QtWidgets import (
     QApplication, QTabWidget, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
-    QMessageBox, QStatusBar, QTableView, QVBoxLayout, QWidget, QPushButton
+    QMessageBox, QStatusBar, QTableView, QVBoxLayout, QWidget, QPushButton,
+    QDialog, QTableWidget, QTableWidgetItem, QVBoxLayout
 )
 
 # ------------------------------------------------------------------ chemins --
@@ -189,9 +190,10 @@ class HaylingScorer(QMainWindow):
         self.b_imp=QPushButton("Importer CSV"); self.b_imp.clicked.connect(self.import_csv); btnL.addWidget(self.b_imp)
         self.b_score=QPushButton("Coter"); self.b_score.setEnabled(False); self.b_score.clicked.connect(self.score); btnL.addWidget(self.b_score)
         self.b_save=QPushButton("Sauver corrections"); self.b_save.setEnabled(False); self.b_save.clicked.connect(self.save_feedback); btnL.addWidget(self.b_save)
-        self.b_export_reco = QPushButton("Exporter recommendations")
-        self.b_export_reco.clicked.connect(self.export_recommandations)
-        btnL.addWidget(self.b_export_reco)
+        self.b_preview_reco = QPushButton("Prévisualiser recommandations")
+        
+        self.b_preview_reco.clicked.connect(self.preview_recommandations)
+        btnL.addWidget(self.b_preview_reco)
         # ajouter le bouton dee reéntrainement 
         self.b_retrain = QPushButton("Réentraîner le modèle")
         self.b_retrain.setEnabled(True)
@@ -357,7 +359,7 @@ class HaylingScorer(QMainWindow):
 
         # Pas de titre dans le canvas (plus propre)
         self.canvas.draw()
-    def export_recommandations(self):
+    def preview_recommandations(self):
         if not FEEDBACK_CSV.exists():
             QMessageBox.warnings(self,"Aucun feedback","Aucun fichier de feedback trouvé pour générer les recommandations.")
             return 
@@ -388,25 +390,65 @@ class HaylingScorer(QMainWindow):
                 return "Données insuffisantes"
             if row["%/ réussite"] > 0.9:
                 return "Trop facile"
-            if row["%/echec"] > 0.6:
+            if row["%/ echec"] > 0.6:
                 return "Trop difficile"
-            if 0.4 <= row["%/ echec"] <= 0.6:
+            if row["%/ ambigu"] > 0.3:
+                return "Ambigu"
+            if 0.2 <= row["%/ echec"] <= 0.5:
                 return " A recommander"
             return "OK"
         stats["Catégorie reco"] = stats.apply(cat_reco, axis=1)
         # trie pour que la psy voit d'abord 'a recommander'
-        stats = stats.sort_values(["Valence","Catégorie reco","%/ echec"], ascending=[True, False, False])
-        # garder les colonnes utiles pour le CSV final 
+        stats = stats.sort_values(["Valence","Catégorie reco","%/ echec"], ascending=[True, True, False])
+        # garder les colonnes utiles 
         export_cols = ["Valence", "Phrase à trou","n","%/ réussite", "%/ echec","%/ ambigu","temps_moy","Catégorie reco"]
-        stats_export = stats[export_cols]
+        stats_export = stats[export_cols].copy()
+        stats_export = stats_export.round(3)
         
-        # chemin d'export 
-        patient_id = self.df.attrs.get("patient_id","inconnu")
-        safe_pid = str(patient_id).replace("","_").replace("/","_")
-        # generer le fichier avec l'ID patient 
-        out_csv = PROJECT_ROOT / f"items_recommandes_{safe_pid}.csv"
-        stats_export.to_csv(out_csv, index=False, encoding="utf-8-sig")
-        QMessageBox.information(self,"Export terminé",f"Recommandations exportées vers {out_csv.name}")
+        # affichage dans une fenetre de preview Qt 
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Aperçu des recommandations d'items")
+        layout = QVBoxLayout(dialog)
+        table = QTableWidget(dialog)
+        table.setColumnCount (len(export_cols))
+        table.setHorizontalHeaderLabels(export_cols)
+        table.setRowCount(len(stats_export))
+        for row in range(len(stats_export)):
+            for col, colname in enumerate(export_cols):
+                val = stats_export.iloc[row, col]
+                item = QTableWidgetItem(str(val))
+                
+                # couleur selon recommandation
+                if colname == "Catégorie recommandation":
+                    if val == "A recommander":
+                        item.setBackground(QColor("#a5d6a7")) # vert doux
+                    elif val == "Trop difficile":
+                        item.setBackground(QColor("#ffe082")) # jaune doux
+                    elif val == "Trop facile":
+                        item.setBackground(QColor("#b3e5fc")) # bleu doux
+                    elif val == "Ambigu":
+                        item.setBackground(QColor("#ce93d8")) # violet clair
+                    elif val == "Données insuffisantes":
+                        item.setBackground(QColor("#e0e0e0")) # gris 
+                table.setItem(row, col, item)
+        table.resizeColumnsToContents()
+        layout.addWidget(table)
+        
+        # bouton export dans la fenetre de preview
+        def do_export():
+            dt = datetime.datetime.now().strftime("%Y%nm%d_%H%M%S")
+            out_csv = PROJECT_ROOT / f"items_recomandes_{dt}.csv"
+            stats_export.to_csv(out_csv, index=False, encoding="utf-8-sig")
+            QMessageBox.information(dialog, "Export terminé", f"Recommandations exportées vers {out_csv.name}")
+            
+        btn_export = QPushButton("Exporter au format CSV")
+        btn_export.clicked.connect(do_export)
+        layout.addWidget(btn_export)
+        dialog.setLayout(layout)
+        dialog.resize(1100,600)
+        dialog.exec_()
+        
+    
 
         
         
