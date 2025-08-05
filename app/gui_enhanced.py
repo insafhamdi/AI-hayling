@@ -298,12 +298,13 @@ class HaylingScorer(QMainWindow):
     def _refresh_analysis(self):
         fig = self.canvas.figure
         fig.clf()
-        fig.set_size_inches(12, 6)  # large et bas
+        fig.set_size_inches(16, 5)  # large et bas
+        gs = fig.add_gridspec(1,4,wspace=0.45) 
 
         df = self.df.copy()
 
         # -------- Bloc 1 : Taux de réussite/échec ---------
-        ax1 = fig.add_subplot(131)
+        ax1 = fig.add_subplot(gs[0,0])
         succ = (df["Cotation automatique"] == 0).sum()
         err  = (df["Cotation automatique"] != 0).sum()
         # Bleu et vert pastel
@@ -323,7 +324,7 @@ class HaylingScorer(QMainWindow):
         ax1.axis('equal')
 
         # -------- Bloc 2 : Temps moyen par valence ---------
-        ax2 = fig.add_subplot(132)
+        ax2 = fig.add_subplot(gs[0,1])
         temps_moy = df.groupby("Valence")["Temps (s)"].mean().sort_values()
         pastel_bar = ["#90caf9", "#a5d6a7", "#b2dfdb"][:len(temps_moy)]
         if not temps_moy.empty:
@@ -341,7 +342,7 @@ class HaylingScorer(QMainWindow):
         ax2.tick_params(axis='x', labelsize=11, rotation=10)
 
         # -------- Bloc 3 : Items à surveiller (si multi-patients) ---------
-        ax3 = fig.add_subplot(133)
+        ax3 = fig.add_subplot(gs[0,2])
         fail_rate = (df.groupby("Phrase à trou")["Cotation automatique"]
                     .apply(lambda x: (x == 3).mean()))
         surveil_items = fail_rate[fail_rate >= 0.4].sort_values(ascending=False).head(5)
@@ -353,12 +354,34 @@ class HaylingScorer(QMainWindow):
             ax3.text(0, 1, msg, fontsize=11, va="top", family="monospace", color="#00695c")
         else:
             ax3.text(0.5, 0.5, "Aucun item à surveiller", ha="center", va="center", fontsize=12, color="#888")
-
+        self._plot_evolution_curve(fig, gs[0,3])
+        fig.subplots_adjust(left=0.03, right=0.99, top=0.88, bottom=0.18)
+        self.canvas.draw()
+        
         # -------- Ajustement global ---------
         fig.subplots_adjust(left=0.05, right=0.97, wspace=0.35, top=0.86, bottom=0.16)
 
         # Pas de titre dans le canvas (plus propre)
         self.canvas.draw()
+    def _plot_evolution_curve(self, fig,position):
+        # ajoute une courbe d'evolution du taux d'echec/erreur cumulé (feedback_hayling.csv)
+        if not FEEDBACK_CSV.exists():
+            return
+        fb = pd.read_csv(FEEDBACK_CSV)
+        if len(fb) < 2 or "label" not in fb.columns:
+            return
+        is_error = fb["label"].apply(lambda x: int(x==3))
+        n = np.arrange(1, len(is_error)+1)
+        taux_cumule = is_error.cumsum() / n  
+        
+        ax = fig.add_subplot(position)
+        ax.plot(n, taux_cumule*100, color="#e57373", lw=2, label="Taux d'échec cumulé")
+        ax.set_title("Evolution du taux d'échec (score=3)", fontsize=12)
+        ax.set_xlabel("Nombre de feedbacks cumulés")
+        ax.set_ylabel("Taux d'échex (%)")
+        ax.set_ylim(0,100)
+        ax.grid(alpha=0.2)
+        ax.legend(loc="upper right", fontsize=10)
     def preview_recommandations(self):
         if not FEEDBACK_CSV.exists():
             QMessageBox.warnings(self,"Aucun feedback","Aucun fichier de feedback trouvé pour générer les recommandations.")
