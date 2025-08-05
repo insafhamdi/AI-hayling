@@ -355,8 +355,6 @@ class HaylingScorer(QMainWindow):
         else:
             ax3.text(0.5, 0.5, "Aucun item à surveiller", ha="center", va="center", fontsize=12, color="#888")
         self._plot_evolution_curve(fig, gs[0,3])
-        fig.subplots_adjust(left=0.03, right=0.99, top=0.88, bottom=0.18)
-        self.canvas.draw()
         
         # -------- Ajustement global ---------
         fig.subplots_adjust(left=0.05, right=0.97, wspace=0.35, top=0.86, bottom=0.16)
@@ -370,13 +368,13 @@ class HaylingScorer(QMainWindow):
         fb = pd.read_csv(FEEDBACK_CSV)
         if len(fb) < 2 or "label" not in fb.columns:
             return
-        is_error = fb["label"].apply(lambda x: int(x==3))
-        n = np.arrange(1, len(is_error)+1)
+        is_error = fb["label"].apply(lambda x: int(x in (1,3)))
+        n = np.arange(1, len(is_error)+1)
         taux_cumule = is_error.cumsum() / n  
         
         ax = fig.add_subplot(position)
         ax.plot(n, taux_cumule*100, color="#e57373", lw=2, label="Taux d'échec cumulé")
-        ax.set_title("Evolution du taux d'échec (score=3)", fontsize=12)
+        ax.set_title("Evolution du taux d'échec (score=1 ou 3)", fontsize=12)
         ax.set_xlabel("Nombre de feedbacks cumulés")
         ax.set_ylabel("Taux d'échex (%)")
         ax.set_ylim(0,100)
@@ -403,28 +401,29 @@ class HaylingScorer(QMainWindow):
                 )
                 .reset_index()
                 )
-        stats["%/ réussite"] = stats["n_reussite"] / stats["n"]
-        stats["%/ echec"] = stats["n_echec"] / stats["n"]
-        stats["%/ ambigu"] = stats["n_ambigu"] / stats["n"]
+        stats["% réussite"] = (stats["n_reussite"] / stats["n"] * 100).round(1)
+        stats["% echec"] = (stats["n_echec"] / stats["n"] * 100).round(1)
+        stats["% ambigu"] = (stats["n_ambigu"] / stats["n"] * 100).round(1)
+        
         
         # classification automatique
         def cat_reco(row):
             if row["n"] < 5:
                 return "Données insuffisantes"
-            if row["%/ réussite"] > 0.9:
+            if row["% réussite"] > 0.9:
                 return "Trop facile"
-            if row["%/ echec"] > 0.6:
+            if row["% echec"] > 0.6:
                 return "Trop difficile"
-            if row["%/ ambigu"] > 0.3:
+            if row["% ambigu"] > 0.3:
                 return "Ambigu"
-            if 0.2 <= row["%/ echec"] <= 0.5:
+            if 0.2 <= row["% echec"] <= 0.5:
                 return " A recommander"
             return "OK"
         stats["Catégorie reco"] = stats.apply(cat_reco, axis=1)
         # trie pour que la psy voit d'abord 'a recommander'
-        stats = stats.sort_values(["Valence","Catégorie reco","%/ echec"], ascending=[True, True, False])
+        stats = stats.sort_values(["Valence","Catégorie reco","% echec"], ascending=[True, True, False])
         # garder les colonnes utiles 
-        export_cols = ["Valence", "Phrase à trou","n","%/ réussite", "%/ echec","%/ ambigu","temps_moy","Catégorie reco"]
+        export_cols = ["Valence", "Phrase à trou","n","% réussite", "% echec","% ambigu","temps_moy","Catégorie reco"]
         stats_export = stats[export_cols].copy()
         stats_export = stats_export.round(3)
         
@@ -439,10 +438,13 @@ class HaylingScorer(QMainWindow):
         for row in range(len(stats_export)):
             for col, colname in enumerate(export_cols):
                 val = stats_export.iloc[row, col]
-                item = QTableWidgetItem(str(val))
+                if colname in ["% réussite","% échec","% ambigu"]:
+                    item =QTableWidgetItem(f"{val:.1f} %")
+                else:
+                    item = QTableWidgetItem(str(val))
                 
                 # couleur selon recommandation
-                if colname == "Catégorie recommandation":
+                if colname == "Catégorie reco":
                     if val == "A recommander":
                         item.setBackground(QColor("#a5d6a7")) # vert doux
                     elif val == "Trop difficile":
