@@ -285,7 +285,7 @@ class HaylingScorer(QMainWindow):
 
         # Ajout colonnes utiles
         self.df["Distance sémantique"]  = np.round(dist_sem, 4)
-        self.df["p_sim"]                = np.round(p_sim, 4)
+        self.df["Probabilité d'erreur"]                = np.round(p_sim, 4)
         self.df["Cotation automatique"] = scores
         self._auto_scores = scores.copy()
 
@@ -402,7 +402,7 @@ class HaylingScorer(QMainWindow):
                 .reset_index()
                 )
         stats["% réussite"] = (stats["n_reussite"] / stats["n"] * 100).round(1)
-        stats["% echec"] = (stats["n_echec"] / stats["n"] * 100).round(1)
+        stats["% échec"] = (stats["n_echec"] / stats["n"] * 100).round(1)
         stats["% ambigu"] = (stats["n_ambigu"] / stats["n"] * 100).round(1)
         
         
@@ -410,31 +410,52 @@ class HaylingScorer(QMainWindow):
         def cat_reco(row):
             if row["n"] < 5:
                 return "Données insuffisantes"
-            if row["% réussite"] > 0.9:
+            if row["% réussite"] > 90:
                 return "Trop facile"
-            if row["% echec"] > 0.6:
+            if row["% échec"] > 60:
                 return "Trop difficile"
-            if row["% ambigu"] > 0.3:
+            if row["% ambigu"] > 30:
                 return "Ambigu"
-            if 0.2 <= row["% echec"] <= 0.5:
+            if 20 <= row["% échec"] <= 50:
                 return " A recommander"
             return "OK"
-        stats["Catégorie reco"] = stats.apply(cat_reco, axis=1)
-        # trie pour que la psy voit d'abord 'a recommander'
-        stats = stats.sort_values(["Valence","Catégorie reco","% echec"], ascending=[True, True, False])
-        # garder les colonnes utiles 
-        export_cols = ["Valence", "Phrase à trou","n","% réussite", "% echec","% ambigu","temps_moy","Catégorie reco"]
+        stats["Catégorie de recommandation"] = stats.apply(cat_reco, axis=1)
+        #  renommage pour affichage 
+        stats = stats.rename(columns={ "n": "Nombre de réponses", "temps_moy": "Temps moyen (s)"})
+        export_cols = [
+        "Valence", "Phrase à trou", "Nombre de réponses",
+        "% réussite", "% échec", "% ambigu", "Temps moyen (s)", "Catégorie de recommandation"
+    ]
         stats_export = stats[export_cols].copy()
-        stats_export = stats_export.round(3)
         
         # affichage dans une fenetre de preview Qt 
         dialog = QDialog(self)
         dialog.setWindowTitle("Aperçu des recommandations d'items")
         layout = QVBoxLayout(dialog)
+        table = QTableWidget(dialog) 
+        # titre 
+        title = QLabel("Aperçu des recommandations d’items (standardisation)")
+        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #1565c0; margin-bottom: 10px;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        # Légende explicative
+        help_text = (
+            "<b>Légende des colonnes :</b><br>"
+            "- <b>Phrase à trou</b> : item du test<br>"
+            "- <b>% réussite</b>, <b>% échec</b>, <b>% ambigu</b> : pourcentage de réponses correctes, erronées ou ambiguës<br>"
+            "- <b>Nombre de réponses</b> : nombre total de feedbacks pour cet item<br>"
+            "- <b>Temps moyen (s)</b> : temps moyen de réponse en secondes<br>"
+            "- <b>Catégorie de recommandation</b> : statut basé sur la performance (voir code couleur)<br>"
+        )
+        layout.addWidget(QLabel(help_text))
+
+        # Tableau Qt
         table = QTableWidget(dialog)
         table.setColumnCount (len(export_cols))
         table.setHorizontalHeaderLabels(export_cols)
         table.setRowCount(len(stats_export))
+        
         for row in range(len(stats_export)):
             for col, colname in enumerate(export_cols):
                 val = stats_export.iloc[row, col]
@@ -444,7 +465,7 @@ class HaylingScorer(QMainWindow):
                     item = QTableWidgetItem(str(val))
                 
                 # couleur selon recommandation
-                if colname == "Catégorie reco":
+                if "recommendation" in colname.lower():
                     if val == "A recommander":
                         item.setBackground(QColor("#a5d6a7")) # vert doux
                     elif val == "Trop difficile":
@@ -459,24 +480,19 @@ class HaylingScorer(QMainWindow):
         table.resizeColumnsToContents()
         layout.addWidget(table)
         
-        # bouton export dans la fenetre de preview
+        # bouton export excel dans la fenetre de preview
         def do_export():
             dt = datetime.datetime.now().strftime("%Y%nm%d_%H%M%S")
-            out_csv = PROJECT_ROOT / f"items_recomandes_{dt}.csv"
-            stats_export.to_csv(out_csv, index=False, encoding="utf-8-sig")
-            QMessageBox.information(dialog, "Export terminé", f"Recommandations exportées vers {out_csv.name}")
+            out_xlsx = PROJECT_ROOT / f"items_recomandes_{dt}.xlsx"
+            stats_export.to_excel(out_xlsx, index=False)
+            QMessageBox.information(dialog, "Export terminé", f"Recommandations exportées vers {out_xlsx.name}")
             
-        btn_export = QPushButton("Exporter au format CSV")
+        btn_export = QPushButton("Exporter au format Excel")
         btn_export.clicked.connect(do_export)
         layout.addWidget(btn_export)
         dialog.setLayout(layout)
-        dialog.resize(1100,600)
+        dialog.resize(1200,700)
         dialog.exec_()
-        
-    
-
-        
-        
         
 
 
