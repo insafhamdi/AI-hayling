@@ -430,25 +430,19 @@ class HaylingScorer(QMainWindow):
         
         # affichage dans une fenetre de preview Qt 
         dialog = QDialog(self)
-        dialog.setWindowTitle("Aperçu des recommandations d'items")
+        dialog.setWindowTitle("Synthèse des items - Recommandations")
         layout = QVBoxLayout(dialog)
-        table = QTableWidget(dialog) 
         # titre 
-        title = QLabel("Aperçu des recommandations d’items (standardisation)")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #1565c0; margin-bottom: 10px;")
+        title = QLabel("Synthèse des items - Recommandations")
+        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #1565c0; margin-bottom: 2px;")
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
-        # Légende explicative
-        help_text = (
-            "<b>Légende des colonnes :</b><br>"
-            "- <b>Phrase à trou</b> : item du test<br>"
-            "- <b>% réussite</b>, <b>% échec</b>, <b>% ambigu</b> : pourcentage de réponses correctes, erronées ou ambiguës<br>"
-            "- <b>Nombre de réponses</b> : nombre total de feedbacks pour cet item<br>"
-            "- <b>Temps moyen (s)</b> : temps moyen de réponse en secondes<br>"
-            "- <b>Catégorie de recommandation</b> : statut basé sur la performance (voir code couleur)<br>"
-        )
-        layout.addWidget(QLabel(help_text))
+        # Sous-titre
+        subtitle = QLabel("<i>Catégorie : Inhibition – Données issues des retours utilisateurs</i>")
+        subtitle.setStyleSheet("color:#444; font-size:13px; margin-bottom:10px;")
+        subtitle.setAlignment(Qt.AlignCenter)
+        layout.addWidget(subtitle)
 
         # Tableau Qt
         table = QTableWidget(dialog)
@@ -456,6 +450,21 @@ class HaylingScorer(QMainWindow):
         table.setHorizontalHeaderLabels(export_cols)
         table.setRowCount(len(stats_export))
         
+        # Tooltips sur entêtes de colonnes
+        col_tooltips = {
+            "Valence": "Catégorie émotionnelle de l’item.",
+            "Phrase à trou": "Item du test (phrase à compléter).",
+            "Nombre de réponses": "Nombre de réponses collectées pour cet item.",
+            "% réussite": "Pourcentage de réponses correctes (score=0).",
+            "% échec": "Pourcentage de réponses erronées (score=3).",
+            "% ambigu": "Pourcentage de réponses ambiguës (score=1).",
+            "Temps moyen (s)": "Temps moyen de réponse pour cet item (en secondes).",
+            "Catégorie de recommandation": "Statut basé sur la performance observée (code couleur)."
+        }
+        for col_idx, col in enumerate(export_cols):
+            item = table.horizontalHeaderItem(col_idx)
+            if item and col in col_tooltips:
+                item.setToolTip(col_tooltips[col])
         for row in range(len(stats_export)):
             for col, colname in enumerate(export_cols):
                 val = stats_export.iloc[row, col]
@@ -466,7 +475,7 @@ class HaylingScorer(QMainWindow):
                 
                 # couleur selon recommandation
                 if "recommendation" in colname.lower():
-                    if val == "A recommander":
+                    if val == "A recommander" or val == " À recommander":
                         item.setBackground(QColor("#a5d6a7")) # vert doux
                     elif val == "Trop difficile":
                         item.setBackground(QColor("#ffe082")) # jaune doux
@@ -477,8 +486,26 @@ class HaylingScorer(QMainWindow):
                     elif val == "Données insuffisantes":
                         item.setBackground(QColor("#e0e0e0")) # gris 
                 table.setItem(row, col, item)
+                
+        # Améliore le style
+        table.setStyleSheet("QTableWidget {font-size: 13px; gridline-color: #DDD;} QTableWidget::item {padding:4px;}")
+        table.verticalHeader().setDefaultSectionSize(26)
+        table.horizontalHeader().setDefaultSectionSize(160)
+        table.setAlternatingRowColors(True)
         table.resizeColumnsToContents()
         layout.addWidget(table)
+
+        # Légende couleur (optionnelle mais conseillée pour la psy)
+        legend = QLabel(
+            "<span style='background:#a5d6a7;padding:2px 8px;'>À recommander</span> "
+            "<span style='background:#ffe082;padding:2px 8px;'>Trop difficile</span> "
+            "<span style='background:#b3e5fc;padding:2px 8px;'>Trop facile</span> "
+            "<span style='background:#ce93d8;padding:2px 8px;'>Ambigu</span> "
+            "<span style='background:#e0e0e0;padding:2px 8px;'>Données insuffisantes</span>"
+        )
+        legend.setStyleSheet("margin-top:8px;margin-bottom:2px;font-size:11px;")
+        legend.setAlignment(Qt.AlignLeft)
+        layout.addWidget(legend)
         
         # bouton export excel dans la fenetre de preview
         def do_export():
@@ -490,10 +517,16 @@ class HaylingScorer(QMainWindow):
         btn_export = QPushButton("Exporter au format Excel")
         btn_export.clicked.connect(do_export)
         layout.addWidget(btn_export)
+        # Footer discret
+        footer = QLabel(
+            f"<span style='color:#aaa;font-size:10px;'>Généré par EMOHayling – ICube/GAIA, {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}</span>"
+        )
+        footer.setAlignment(Qt.AlignRight)
+        layout.addWidget(footer)
+
         dialog.setLayout(layout)
-        dialog.resize(1200,700)
+        dialog.resize(1200, 700)
         dialog.exec_()
-        
 
 
     def save_feedback(self):
