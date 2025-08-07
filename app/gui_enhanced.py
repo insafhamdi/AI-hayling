@@ -15,6 +15,7 @@ import numpy as np, pandas as pd, torch
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics import roc_curve, balanced_accuracy_score
 from sklearn.model_selection import train_test_split
+from sklearn.cluster import KMeans  
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as Canvas
 
@@ -23,7 +24,7 @@ from PyQt5.QtGui     import QPixmap, QColor, QBrush
 from PyQt5.QtWidgets import (
     QApplication, QTabWidget, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
     QMessageBox, QStatusBar, QTableView, QVBoxLayout, QWidget, QPushButton,
-    QDialog, QTableWidget, QTableWidgetItem, QVBoxLayout
+    QDialog, QTableWidget, QTableWidgetItem
 )
 
 # ------------------------------------------------------------------ chemins --
@@ -199,6 +200,13 @@ class HaylingScorer(QMainWindow):
         self.b_retrain.setEnabled(True)
         self.b_retrain.clicked.connect(self.retrain_model)
         btnL.addWidget(self.b_retrain)
+        
+        # bouton de sélection intelligente d'items 
+        self.b_select_items = QPushButton("Sélection intelligente")
+        self.b_select_items.setEnabled(True)
+        self.b_selectç_items.clicked.connect(self.selection_intelligente_items)
+        btnL.addWidget(self.b_select_items)
+        
         
         btnL.addStretch(); tbox.addLayout(btnL)
         self.tabs.addTab(tab_tbl,"Tableau")
@@ -654,6 +662,61 @@ class HaylingScorer(QMainWindow):
             f"(n={len(y_val)}), epochs: {epoch+1}")
         self.status.showMessage(msg)
         QMessageBox.information(self, "Réentraînement modèle", msg)
+        
+    def selection_intelligente_items(self):
+        # charger le fichier d'items 
+        try:
+            df = pd.read.excel("C:\Users\hamdi\Desktop\ICube\Emotional Hayling\Hayling_propositions_passation.xlsx", sheet_name="Feuil1")
+        except Exception as e:
+            QMessageBox.critical(self,"Erreur", f"Erreur de chargement du fichier : {e}")
+            return
+        
+        df = df[["Propositions","Valence"]].dropna()
+        df["Propositions"] = df["Propositions"].str.strip()
+        df = df[df["Valence"].isin(["Trauma","Borderline","Négatif"])]
+        
+        # charger le modele LaBSE finetuné
+        model_path = r"C:\Users\hamdi\Desktop\ICube\EMOHayling\labse_emotion"
+        try:
+            model = SentenceTransformer(model_path)
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur",f"Erreur de chargement du modèle : {e}")
+            return 
+        # encoder 
+        df["embedding"] = list(model.encode(df["Propositions"].tolist(),convert_to_numpy=True,normalize_embeddings=True))
+        
+        def select_diverse_items(embeddings, texts, k=3):
+            kmeans = KMeans(n_clusters=k, random_state=42, n_init="auto")
+            labels = kmeans.fit_predict(embeddings)
+            selected = []
+            for i in range(k):
+                cluster_indices = np.where(labels == i)[0]
+                if len(cluster_indices) == 0:
+                    continue
+                center = kmeans.cluster_center_[i]
+                cluster_emb = embeddings[cluster_indices]
+                dists = np.linalg.norm(cluster_emb - center, axis=1)
+                best_idx = cluster_indices[np.argmin(dists)]
+                selected.append(texts[best_idx])
+            return selected 
+        
+        resultats = {}
+        for val in df["Valence"].unique():
+            df_val = df[df["Valence"] == val]
+            embeddings = np.vstack(df_val["embedding"].values)
+            phrases = df_val["Propositions"].tolist()
+            resultats[val]= select_diverse_items(embeddings, phrases)
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Sélection intelligente par clustering")
+        layout = QVBoxLayout()
+        for val, items in resultats.items():
+            texte = f"<b>{val.upper()}</b><br>" + "<br>".join(f". {p}" for p in items)
+            lbl = QLabel(texte)
+            lbl.setWordWrap(True)
+            layout.addWidget(lbl)
+        dialog.setLayout(layout)
+        dialog.exec_()
         
 # ------------------------------------------------------------------ main -----
 def main():
