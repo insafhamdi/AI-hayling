@@ -204,7 +204,7 @@ class HaylingScorer(QMainWindow):
         # bouton de sélection intelligente d'items 
         self.b_select_items = QPushButton("Sélection intelligente")
         self.b_select_items.setEnabled(True)
-        self.b_selectç_items.clicked.connect(self.selection_intelligente_items)
+        self.b_select_items.clicked.connect(self.selection_intelligente_items)
         btnL.addWidget(self.b_select_items)
         
         
@@ -664,60 +664,81 @@ class HaylingScorer(QMainWindow):
         QMessageBox.information(self, "Réentraînement modèle", msg)
         
     def selection_intelligente_items(self):
-        # charger le fichier d'items 
+        # 1) Charger le fichier d'items depuis la racine du projet (évite les \ Windows)
         try:
-            df = pd.read.excel("C:\Users\hamdi\Desktop\ICube\Emotional Hayling\Hayling_propositions_passation.xlsx", sheet_name="Feuil1")
+            xlsx_path = PROJECT_ROOT / "Hayling_propositions_passation.xlsx"
+            df = pd.read_excel(xlsx_path, sheet_name=0)  # ou "Feuil1" si besoin
         except Exception as e:
-            QMessageBox.critical(self,"Erreur", f"Erreur de chargement du fichier : {e}")
+            QMessageBox.critical(self, "Erreur", f"Erreur de chargement du fichier : {e}")
             return
-        
-        df = df[["Propositions","Valence"]].dropna()
+
+        # 2) Nettoyage / filtrage
+        df = df[["Propositions", "Valence"]].dropna()
         df["Propositions"] = df["Propositions"].str.strip()
-        df = df[df["Valence"].isin(["Trauma","Borderline","Négatif"])]
-        
-        # charger le modele LaBSE finetuné
-        model_path = r"C:\Users\hamdi\Desktop\ICube\EMOHayling\labse_emotion"
+        df = df[df["Valence"].isin(["Trauma", "Borderline", "Négatif"])].reset_index(drop=True)
+
+        # 3) Encoder avec LaBSE finetuné
         try:
-            model = SentenceTransformer(model_path)
+            model = SentenceTransformer(str(MODEL_DIR))
         except Exception as e:
-            QMessageBox.critical(self, "Erreur",f"Erreur de chargement du modèle : {e}")
-            return 
-        # encoder 
-        df["embedding"] = list(model.encode(df["Propositions"].tolist(),convert_to_numpy=True,normalize_embeddings=True))
-        
-        def select_diverse_items(embeddings, texts, k=3):
-            kmeans = KMeans(n_clusters=k, random_state=42, n_init="auto")
-            labels = kmeans.fit_predict(embeddings)
+            QMessageBox.critical(self, "Erreur", f"Erreur de chargement du modèle : {e}")
+            return
+
+        emb = model.encode(
+            df["Propositions"].tolist(),
+            convert_to_numpy=True,
+            normalize_embeddings=True
+        )
+        df["embedding"] = list(emb)
+
+        # 4) Sélection diverse par KMeans (k = 3 max, mais ≤ nb d'items)
+        def select_diverse_items(embeddings: np.ndarray, texts: list[str], k: int = 3) -> list[str]:
+            k = min(k, len(texts))
+            if k <= 0:
+                return []
+            if k == 1:
+                return [texts[0]]
+
+            km = KMeans(n_clusters=k, random_state=42, n_init="auto")
+            labels = km.fit_predict(embeddings)
+
             selected = []
             for i in range(k):
-                cluster_indices = np.where(labels == i)[0]
-                if len(cluster_indices) == 0:
+                idxs = np.where(labels == i)[0]
+                if len(idxs) == 0:
                     continue
-                center = kmeans.cluster_center_[i]
-                cluster_emb = embeddings[cluster_indices]
-                dists = np.linalg.norm(cluster_emb - center, axis=1)
-                best_idx = cluster_indices[np.argmin(dists)]
+                center = km.cluster_centers_[i]  # <- (pluriel) cluster_centers_
+                dists = np.linalg.norm(embeddings[idxs] - center, axis=1)
+                best_idx = idxs[np.argmin(dists)]
                 selected.append(texts[best_idx])
-            return selected 
-        
+            return selected
+
         resultats = {}
-        for val in df["Valence"].unique():
+        for val in ["Trauma", "Borderline", "Négatif"]:
             df_val = df[df["Valence"] == val]
-            embeddings = np.vstack(df_val["embedding"].values)
-            phrases = df_val["Propositions"].tolist()
-            resultats[val]= select_diverse_items(embeddings, phrases)
-        
+            if df_val.empty:
+                resultats[val] = []
+                continue
+            emb_val = np.vstack(df_val["embedding"].values)
+            phrases_val = df_val["Propositions"].tolist()
+            resultats[val] = select_diverse_items(emb_val, phrases_val, k=3)
+
+        # 5) Affichage
         dialog = QDialog(self)
         dialog.setWindowTitle("Sélection intelligente par clustering")
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(dialog)
         for val, items in resultats.items():
-            texte = f"<b>{val.upper()}</b><br>" + "<br>".join(f". {p}" for p in items)
+            if items:
+                texte = f"<b>{val.upper()}</b><br>" + "<br>".join(f"• {p}" for p in items)
+            else:
+                texte = f"<b>{val.upper()}</b><br><i>Pas assez d'items</i>"
             lbl = QLabel(texte)
             lbl.setWordWrap(True)
             layout.addWidget(lbl)
-        dialog.setLayout(layout)
+
+        dialog.resize(700, 400)
         dialog.exec_()
-        
+
 # ------------------------------------------------------------------ main -----
 def main():
     app=QApplication(sys.argv); win=HaylingScorer(); win.show(); sys.exit(app.exec_())
