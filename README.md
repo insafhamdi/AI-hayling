@@ -97,7 +97,7 @@ Hamdi I., Lam J., Capobianco A., Tej I. (2025). An Automatic Scoring Method for 
 > ⚠️ **No commercial deployment** without explicit approval.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/ictai.png" alt="ICTAI logo" width="220"/>
+  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/ictai.png" alt="ICTAI logo" width="210"/>
   <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/laboratoire-icube-logo-png_seeklogo-401018.png" alt="ICube logo" width="100"/>
 </p> 
 
