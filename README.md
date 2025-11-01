@@ -4,6 +4,10 @@
 
 A clinical AI tool designed to automatically score verbal inhibition in classical and emotional contexts — powered by NLP, embeddings, and transformer models.
 
+<p align="right">
+  <img src="https://ictai.com/wp-content/uploads/2021/09/ICTAI_logo.png" alt="ICTAI logo" height="50"/>
+</p>
+
 ---
 
 ## 📌 Project Overview
