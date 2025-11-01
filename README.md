@@ -92,13 +92,15 @@ Hamdi I., Lam J., Capobianco A., Tej I. (2025). An Automatic Scoring Method for 
 ```
 ## 📄 License
 
-📝 Licensed under the CeCILL v2.1 License — see LICENSE
- for more information.
-For use cases in clinical or research settings only — no commercial deployment without approval.
+📝 Licensed under the [CeCILL v2.1 License](https://cecill.info/licences/Licence_CeCILL_V2.1-en.html) — see `LICENSE` for more information.
+> For use in **clinical or research settings** only.  
+> ⚠️ **No commercial deployment** without explicit approval.
 
-<p align="right">
-  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/ictai.png" alt="ICTAI logo" width="200"/>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/ictai.png" alt="ICTAI logo" width="220"/>
   <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/laboratoire-icube-logo-png_seeklogo-401018.png" alt="ICube logo" width="100"/>
 </p> 
+
+---
 
 © 2025 – Insaf Hamdi, ICube (GAIA) & LPC
