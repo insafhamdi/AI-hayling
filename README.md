@@ -3,6 +3,10 @@
 **🎯 EMOHayling – Automatic Scoring for the Emotional Hayling Test**
 
 A clinical AI tool designed to automatically score verbal inhibition in classical and emotional contexts — powered by NLP, embeddings, and transformer models.
+<p align="right">
+  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/ictai.png" alt="ICTAI logo" width="90"/>
+  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/icube_logo.png" alt="ICube logo" width="100"/>
+</p>
 
 
 ---
