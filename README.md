@@ -16,8 +16,7 @@ It aims to standardize and automate the scoring of the Hayling Sentence Completi
 
 ## 🎥 Demo
 
-🔗 [Demo video on Google Drive](https://drive.google.com/file/d/1d8xwra4J8PBR9k6zvdfzUcb3jQqw_dnk/view?usp=sharing)
-
+🔗 [Demo video on Google Drive](https://drive.google.com/drive/folders/1wGJHunuULPBSd6BnFgGoU4K8hjbJ0zkj?usp=sharing)
 ---
 
 ## 🚀 Key Features
@@ -57,17 +56,17 @@ cd AI-hayling
 ```
 ###2. Create and activate virtual environment
 
-####On Linux/macOS:
+#### On Linux/macOS:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
-####On Windows (PowerShell):
+#### On Windows (PowerShell):
 ```bash
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
-###3. Install dependencies
+### 3. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
