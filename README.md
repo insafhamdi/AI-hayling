@@ -18,7 +18,7 @@ It automates the scoring of the **Hayling Sentence Completion Test** (including 
 
 ## 🎥 Demo
 
-▶️ [Watch the demo video](https://drive.google.com/file/d/1b0xwnzLlJPP63nqE96t4f4y8nbGyo_e8/view?usp=sharing)
+▶️ [Watch the demo video]([https://drive.google.com/file/d/1b0xwnzLlJPP63nqE96t4f4y8nbGyo_e8/view?usp=sharing](https://drive.google.com/drive/folders/1wGJHunuULPBSd6BnFgGoU4K8hjbJ0zkj?usp=sharing))
 
 ---
 
