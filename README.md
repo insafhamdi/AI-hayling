@@ -3,10 +3,7 @@
 **🎯 EMOHayling – Automatic Scoring for the Emotional Hayling Test**
 
 A clinical AI tool designed to automatically score verbal inhibition in classical and emotional contexts — powered by NLP, embeddings, and transformer models.
-<p align="right">
-  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/ictai.png" alt="ICTAI logo" width="90"/>
-  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/laboratoire-icube-logo-png_seeklogo-401018.png" alt="ICube logo" width="100"/>
-</p>
+
 
 
 ---
@@ -96,5 +93,10 @@ Hamdi I., Lam J., Capobianco A., Tej I. (2025). An Automatic Scoring Method for 
 📝 Licensed under the CeCILL v2.1 License — see LICENSE
  for more information.
 For use cases in clinical or research settings only — no commercial deployment without approval.
+
+<p align="right">
+  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/ictai.png" alt="ICTAI logo" width="90"/>
+  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/laboratoire-icube-logo-png_seeklogo-401018.png" alt="ICube logo" width="100"/>
+</p> 
 
 © 2025 – Insaf Hamdi, ICube (GAIA) & LPC
