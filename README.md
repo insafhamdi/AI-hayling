@@ -5,7 +5,8 @@
 A clinical AI tool designed to automatically score verbal inhibition in classical and emotional contexts — powered by NLP, embeddings, and transformer models.
 
 
-[![ICTAI 2025](https://img.shields.io/badge/Accepted--paper-ICTAI%202025-blue?logo=ieee)]([https://ictai-conference.org/](https://easyconferences.eu/ictai2025/))
+[![ICTAI 2025](https://img.shields.io/badge/Accepted--paper-ICTAI%202025-blue?logo=ieee)](https://easyconferences.eu/ictai2025/)
+
 
 ---
 
