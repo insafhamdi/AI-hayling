@@ -5,7 +5,7 @@
 A clinical AI tool designed to automatically score verbal inhibition in classical and emotional contexts — powered by NLP, embeddings, and transformer models.
 
 
-[![ICTAI 2025](https://img.shields.io/badge/Accepted--paper-ICTAI%202025-blue?logo=ieee)](https://ictai-conference.org/)
+[![ICTAI 2025](https://img.shields.io/badge/Accepted--paper-ICTAI%202025-blue?logo=ieee)]([https://ictai-conference.org/](https://easyconferences.eu/ictai2025/))
 
 ---
 
@@ -96,7 +96,7 @@ Hamdi I., Lam J., Capobianco A., Tej I. (2025). An Automatic Scoring Method for 
 For use cases in clinical or research settings only — no commercial deployment without approval.
 
 <p align="right">
-  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/ictai.png" alt="ICTAI logo" width="100"/>
+  <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/ictai.png" alt="ICTAI logo" width="200"/>
   <img src="https://raw.githubusercontent.com/insafhamdi/AI-hayling/main/assets/laboratoire-icube-logo-png_seeklogo-401018.png" alt="ICube logo" width="100"/>
 </p> 
 
