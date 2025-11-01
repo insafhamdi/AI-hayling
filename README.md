@@ -4,9 +4,6 @@
 
 A clinical AI tool designed to automatically score verbal inhibition in classical and emotional contexts — powered by NLP, embeddings, and transformer models.
 
-<p align="right">
-  <img src="https://ictai.com/wp-content/uploads/2021/09/ICTAI_logo.png" alt="ICTAI logo" height="50"/>
-</p>
 
 ---
 
@@ -58,7 +55,7 @@ It aims to standardize and automate the scoring of the Hayling Sentence Completi
 git clone https://github.com/insafhamdi/AI-hayling.git
 cd AI-hayling
 ```
-###2. Create and activate virtual environment
+### 2. Create and activate virtual environment
 
 #### On Linux/macOS:
 ```bash
@@ -87,11 +84,13 @@ python scripts/evaluate_responses.py
 ```
 ## 📚 Citation & References
 If you use this repo for research or clinical workflow pilots, cite:
-
+```bash
 Hamdi I., Lam J., Capobianco A., Tej I. (2025). An Automatic Scoring Method for the Emotional Hayling Test. IEEE ICTAI 2025.
-
+```
 ## 📄 License
 
 📝 Licensed under the CeCILL v2.1 License — see LICENSE
  for more information.
 For use cases in clinical or research settings only — no commercial deployment without approval.
+
+© 2025 – Insaf Hamdi, ICube (GAIA) & LPC
