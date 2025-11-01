@@ -85,7 +85,7 @@ python scripts/evaluate_responses.py
 ## 📚 Citation & References
 If you use this repo for research or clinical workflow pilots, cite:
 ```bash
-Hamdi I., Lam J., Capobianco A., Tej I. (2025). An Automatic Scoring Method for the Emotional Hayling Test. IEEE ICTAI 2025.
+Hamdi I., Lam J., Capobianco A., Tej I. (2025). An Automatic Scoring Method for responses to the Hayling Test. IEEE ICTAI 2025.
 ```
 ## 📄 License
 
